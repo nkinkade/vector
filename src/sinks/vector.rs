@@ -1,13 +1,12 @@
 use crate::{
+    config::{DataType, SinkConfig, SinkContext, SinkDescription},
     event::proto,
     internal_events::VectorEventSent,
     sinks::util::{tcp::TcpSink, StreamSink},
     tls::{MaybeTlsSettings, TlsConfig},
-    topology::config::{DataType, SinkConfig, SinkContext, SinkDescription},
     Event,
 };
-use bytes::Bytes;
-use bytes05::{BufMut, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use futures01::{stream::iter_ok, Sink};
 use prost::Message;
 use serde::{Deserialize, Serialize};
@@ -84,7 +83,5 @@ fn encode_event(event: Event) -> Option<Bytes> {
     out.put_u32(event_len as u32);
     event.encode(&mut out).unwrap();
 
-    let mut bytes = Bytes::with_capacity(out.len());
-    bytes.extend_from_slice(&out);
-    Some(bytes)
+    Some(out.into())
 }

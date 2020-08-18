@@ -1,4 +1,5 @@
 use crate::{
+    config::SinkContext,
     dns::Resolver,
     emit,
     internal_events::{
@@ -8,9 +9,8 @@ use crate::{
     sinks::util::{encode_event, encoding::EncodingConfig, Encoding, SinkBuildError, StreamSink},
     sinks::{Healthcheck, RouterSink},
     tls::{MaybeTlsConnector, MaybeTlsSettings, MaybeTlsStream, TlsConfig},
-    topology::config::SinkContext,
 };
-use bytes05::Bytes;
+use bytes::Bytes;
 use futures::{
     compat::{Compat01As03, CompatSink},
     FutureExt, TryFutureExt,
@@ -196,7 +196,7 @@ impl TcpSink {
 }
 
 impl Sink for TcpSink {
-    type SinkItem = bytes::Bytes;
+    type SinkItem = Bytes;
     type SinkError = ();
 
     fn start_send(&mut self, line: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
@@ -242,20 +242,13 @@ impl Sink for TcpSink {
                         emit!(TcpEventSent {
                             byte_size: line.len()
                         });
-                        let line = Bytes::copy_from_slice(&line);
                         match connection.start_send(line) {
                             Err(error) => {
                                 error!(message = "connection disconnected.", %error);
                                 self.state = TcpSinkState::Disconnected;
                                 Ok(AsyncSink::Ready)
                             }
-                            Ok(res) => Ok(match res {
-                                AsyncSink::Ready => AsyncSink::Ready,
-                                AsyncSink::NotReady(bytes) => {
-                                    let bytes = bytes::Bytes::from(&bytes[..]);
-                                    AsyncSink::NotReady(bytes)
-                                }
-                            }),
+                            Ok(res) => Ok(res),
                         }
                     }
                 }

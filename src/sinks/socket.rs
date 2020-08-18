@@ -1,9 +1,9 @@
 #[cfg(unix)]
 use crate::sinks::util::unix::UnixSinkConfig;
 use crate::{
+    config::{DataType, SinkConfig, SinkContext, SinkDescription},
     sinks::util::{encoding::EncodingConfig, tcp::TcpSinkConfig, udp::UdpSinkConfig, Encoding},
     tls::TlsConfig,
-    topology::config::{DataType, SinkConfig, SinkContext, SinkDescription},
 };
 use serde::{Deserialize, Serialize};
 
@@ -87,9 +87,9 @@ impl SinkConfig for SocketSinkConfig {
 mod test {
     use super::*;
     use crate::{
+        config::SinkContext,
         event::Event,
         test_util::{next_addr, random_lines_with_stream, runtime, CountReceiver},
-        topology::config::SinkContext,
     };
     use futures::compat::Future01CompatExt;
     use futures01::Sink;
@@ -145,13 +145,13 @@ mod test {
             let context = SinkContext::new_test();
             let (sink, _healthcheck) = config.build(context).unwrap();
 
-            let receiver = CountReceiver::receive_lines(addr);
+            let mut receiver = CountReceiver::receive_lines(addr);
 
             let (lines, events) = random_lines_with_stream(10, 100);
             let _ = sink.send_all(events).compat().await.unwrap();
 
-            // Some CI machines are very slow, be generous.
-            std::thread::sleep(std::time::Duration::from_secs(2));
+            // Wait for output to connect
+            receiver.connected().await;
 
             let output = receiver.wait().await;
             assert_eq!(lines.len(), output.len());
